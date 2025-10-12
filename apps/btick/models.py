@@ -17,6 +17,14 @@ class BookingStatus(models.TextChoices):
     CANCELLED = 'CANCELLED'
 
 
+class TicketType(models.TextChoices):
+    STANDARD = 'STANDARD', 'Standard'
+    VIP = 'VIP', 'VIP'
+    EARLY_BIRD = 'EARLY_BIRD', 'Early Bird'
+    STUDENT = 'STUDENT', 'Student'
+    GROUP = 'GROUP', 'Group'
+
+
 class Organization(BaseEntity):
     """
     TODO: Add docs strings
@@ -93,7 +101,7 @@ class EventsTicket(BaseEntity):
 
     """
     event = models.ForeignKey(Event, on_delete=CASCADE, related_name='tickets')
-    ticket_type = models.CharField(max_length=80)
+    ticket_type = models.CharField(max_length=80, choices=TicketType.choices)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     quota = models.PositiveIntegerField(default=0)
     sold = models.PositiveIntegerField(default=0)
