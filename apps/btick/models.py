@@ -1,7 +1,5 @@
-from tkinter.constants import CASCADE
-
 from django.db import models
-from django.db.models import PROTECT, CheckConstraint, Q, F, UniqueConstraint
+from django.db.models import PROTECT, CheckConstraint, Q, F, UniqueConstraint, CASCADE
 from django.conf import settings
 
 from apps.abstracts.models import BaseEntity
