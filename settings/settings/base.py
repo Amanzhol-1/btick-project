@@ -31,7 +31,8 @@ DJANGO_AND_THIRD_PARTY_APPS = [
     'django.contrib.staticfiles',
 ]
 PROJECT_APPS = [
-    
+    'apps.abstracts',
+    'apps.btick',
 ]
 
 
