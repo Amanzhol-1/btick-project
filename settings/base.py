@@ -64,7 +64,7 @@ MIDDLEWARE = [
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -132,9 +132,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 UNFOLD = {
-    "COMMAND": {
-        "search_models": True,  # Default: False
-        "search_callback": "utils.search_callback",
-        "show_history": True,  # Enable history
-    },
+    "SITE_TITLE": "BTick Admin",
+    "SITE_HEADER": "BTick",
+    "DASHBOARD_CALLBACK": "apps.btick.dashboard.dashboard_callback",
 }

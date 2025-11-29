@@ -45,8 +45,8 @@ class SoftDeleteAdmin:
     """
 
     def get_queryset(self, request):
-        """Override to show all objects including soft-deleted ones"""
-        qs = self.model.all_objects.get_queryset()
+        """Return all objects including soft-deleted ones"""
+        qs = self.model.objects.all()
         ordering = self.get_ordering(request)
         if ordering:
             qs = qs.order_by(*ordering)

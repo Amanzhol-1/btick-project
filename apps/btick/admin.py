@@ -24,7 +24,7 @@ class OrganizationAdmin(SoftDeleteAdmin, ModelAdmin):
     )
     list_filter = (SoftDeleteFilter, "is_active", "created_at")
     search_fields = ("name", "contact_email", "website")
-    readonly_fields = ("created_at", "updated_at", "deleted_at", "version")
+    readonly_fields = ("created_at", "updated_at", "deleted_at")
     ordering = ("name",)
 
 
@@ -40,7 +40,7 @@ class VenueAdmin(SoftDeleteAdmin, ModelAdmin):
     )
     list_filter = (SoftDeleteFilter, "is_active", "created_at")
     search_fields = ("name", "address")
-    readonly_fields = ("created_at", "updated_at", "deleted_at", "version")
+    readonly_fields = ("created_at", "updated_at", "deleted_at")
     ordering = ("name",)
 
 
@@ -54,7 +54,7 @@ class EventCategoryAdmin(SoftDeleteAdmin, ModelAdmin):
     )
     list_filter = (SoftDeleteFilter, "is_active")
     search_fields = ("name",)
-    readonly_fields = ("created_at", "updated_at", "deleted_at", "version")
+    readonly_fields = ("created_at", "updated_at", "deleted_at")
     ordering = ("name",)
 
 
@@ -74,7 +74,7 @@ class EventAdmin(SoftDeleteAdmin, ModelAdmin):
     list_filter = (SoftDeleteFilter, "status", "category", "organization", "starts_at", "is_active")
     search_fields = ("title", "description", "organization__name", "venue__name")
     list_select_related = ("organization", "venue", "category")
-    readonly_fields = ("created_at", "updated_at", "deleted_at", "version")
+    readonly_fields = ("created_at", "updated_at", "deleted_at")
     ordering = ("-starts_at",)
     date_hierarchy = "starts_at"
 
@@ -89,7 +89,7 @@ class EventAdmin(SoftDeleteAdmin, ModelAdmin):
             "fields": ("starts_at", "ends_at", "capacity")
         }),
         ("System Fields", {
-            "fields": ("is_active", "created_at", "updated_at", "deleted_at", "version"),
+            "fields": ("is_active", "created_at", "updated_at", "deleted_at"),
             "classes": ("collapse",)
         })
     )
@@ -110,7 +110,7 @@ class EventsTicketAdmin(SoftDeleteAdmin, ModelAdmin):
     list_filter = (SoftDeleteFilter, "ticket_type", "is_active", "created_at")
     search_fields = ("event__title",)
     list_select_related = ("event",)
-    readonly_fields = ("sold", "created_at", "updated_at", "deleted_at", "version", "available_tickets")
+    readonly_fields = ("sold", "created_at", "updated_at", "deleted_at", "available_tickets")
     ordering = ("event", "ticket_type")
 
     fieldsets = (
@@ -121,7 +121,7 @@ class EventsTicketAdmin(SoftDeleteAdmin, ModelAdmin):
             "fields": ("quota", "sold", "available_tickets")
         }),
         ("System Fields", {
-            "fields": ("is_active", "created_at", "updated_at", "deleted_at", "version"),
+            "fields": ("is_active", "created_at", "updated_at", "deleted_at"),
             "classes": ("collapse",)
         })
     )
@@ -162,7 +162,7 @@ class BookingAdmin(SoftDeleteAdmin, ModelAdmin):
         "event_ticket__ticket_type"
     )
     list_select_related = ("user", "event_ticket", "event_ticket__event")
-    readonly_fields = ("created_at", "updated_at", "deleted_at", "version")
+    readonly_fields = ("created_at", "updated_at", "deleted_at")
     ordering = ("-created_at",)
     date_hierarchy = "created_at"
 
@@ -174,7 +174,7 @@ class BookingAdmin(SoftDeleteAdmin, ModelAdmin):
             "fields": ("expires_at",)
         }),
         ("System Fields", {
-            "fields": ("is_active", "created_at", "updated_at", "deleted_at", "version"),
+            "fields": ("is_active", "created_at", "updated_at", "deleted_at"),
             "classes": ("collapse",)
         })
     )
