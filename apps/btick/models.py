@@ -1,9 +1,12 @@
 from django.db import models
 from django.db.models import PROTECT, CheckConstraint, Q, F, UniqueConstraint, CASCADE
 from django.conf import settings
+# from django.contrib.auth.models import User
+from django.contrib.auth import get_user_model
 
 from apps.abstracts.models import BaseEntity
 
+User = get_user_model()
 
 class EventStatus(models.TextChoices):
     DRAFT = 'DRAFT'
@@ -124,7 +127,7 @@ class Booking(BaseEntity):
     """
 
     """
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=CASCADE, related_name='bookings')
+    user = models.ForeignKey(User, on_delete=CASCADE, related_name='bookings')
     event_ticket = models.ForeignKey(EventsTicket, on_delete=PROTECT, related_name='bookings')
     quantity = models.PositiveIntegerField(default=1)
     status = models.CharField(max_length=12, choices=BookingStatus.choices, default=BookingStatus.PENDING)

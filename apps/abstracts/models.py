@@ -56,23 +56,14 @@ class SoftDeleteQuerySet(models.QuerySet):
 
     def delete(self):
         """Soft delete all objects in the queryset"""
-        return self.update(deleted_at=timezone.now())
+        update = {'deleted_at': timezone.now()}
+        if hasattr(self.model, 'is_active'):
+            update['is_active'] = False
+        return self.update(**update)
 
     def hard_delete(self):
         """Permanently delete all objects in the queryset"""
         return super().delete()
-
-
-class SoftDeleteManager(models.Manager):
-    """Manager that hides soft-deleted rows by default"""
-    def get_queryset(self) -> SoftDeleteQuerySet:
-        return SoftDeleteQuerySet(self.model, using=self._db).alive()
-
-
-class AllObjectsManager(models.Manager):
-    """Manager that exposes all rows including soft-deleted ones"""
-    def get_queryset(self) -> SoftDeleteQuerySet:
-        return SoftDeleteQuerySet(self.model, using=self._db)
 
 
 class SoftDeleteMixin(models.Model):
@@ -82,13 +73,12 @@ class SoftDeleteMixin(models.Model):
     Provides:
         - deleted_at field
         - Soft delete on instance.delete()
-        - Custom managers (objects/all_objects)
+        - QuerySet methods: alive(), dead(), hard_delete()
         - Template method for extensions
     """
     deleted_at = models.DateTimeField(null=True, blank=True)
 
-    objects = SoftDeleteManager()
-    all_objects = AllObjectsManager()
+    objects = SoftDeleteQuerySet.as_manager()
 
     class Meta:
         abstract = True
@@ -121,65 +111,22 @@ class SoftDeleteMixin(models.Model):
         super().delete(using=using, keep_parents=keep_parents)
 
 
-class VersionedMixin(models.Model):
-    """
-    Adds optimistic locking support by 'version' field
-
-    Contract:
-        Increment 'version' from service layer when applying state-changing updated
-    """
-    version = models.PositiveIntegerField(default=0, editable=False)
-
-    class Meta:
-        abstract = True
-
-    def bump_version(self):
-        self.version = (self.version or 0) + 1
-
-
-class BaseEntityQuerySet(SoftDeleteQuerySet):
-    """
-    QuerySet for BaseEntity that coordinates soft delete with is_active flag.
-    Ensures deleted items are also marked as inactive.
-    """
-
-    def delete(self):
-        """Soft delete and mark as inactive"""
-        return self.update(deleted_at=timezone.now(), is_active=False)
-
-
-class BaseEntityManager(models.Manager):
-    """Manager for BaseEntity that returns only active, non-deleted records"""
-
-    def get_queryset(self) -> BaseEntityQuerySet:
-        return BaseEntityQuerySet(self.model, using=self._db).alive()
-
-
-class BaseEntityAllObjectsManager(models.Manager):
-    """Manager for BaseEntity that exposes all records"""
-
-    def get_queryset(self) -> BaseEntityQuerySet:
-        return BaseEntityQuerySet(self.model, using=self._db)
-
-
-class BaseEntity(CreatedAtMixin, UpdatedAtMixin, IsActiveMixin, SoftDeleteMixin, VersionedMixin, models.Model):
+class BaseEntity(CreatedAtMixin, UpdatedAtMixin, IsActiveMixin, SoftDeleteMixin, models.Model):
     """
     Abstract base entity model
 
     Includes:
         - created_at, updated_at (timestamp tracking)
         - is_active (enable/disable flag)
-        - deleted_at (soft delete) with dedicated managers
-        - version (optimistic lock)
+        - deleted_at (soft delete)
 
     Behavior:
         - When soft deleted, is_active is automatically set to False
-        - Default manager shows only active, non-deleted records
-        - all_objects manager shows everything
+        - Use .alive() to filter only non-deleted records
+        - Use .dead() to filter only deleted records
     """
 
-    objects = BaseEntityManager()
-    all_objects = BaseEntityAllObjectsManager()
+    objects = SoftDeleteQuerySet.as_manager()
 
     class Meta:
         abstract = True
