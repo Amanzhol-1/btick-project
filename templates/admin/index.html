@@ -1,0 +1,50 @@
+{% extends 'unfold/layouts/base_simple.html' %}
+{% load i18n unfold %}
+
+{% block breadcrumbs %}{% endblock %}
+
+{% block title %}
+    {% trans "Dashboard" %} | {{ site_title }}
+{% endblock %}
+
+{% block content %}
+    <!-- Stats Cards Row -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+        {% component "unfold/components/card.html" with title="Total Bookings" class="text-center" %}
+            <div class="text-4xl font-bold text-primary-600">{{ booking_stats.total }}</div>
+        {% endcomponent %}
+
+        {% component "unfold/components/card.html" with title="Pending" class="text-center" %}
+            <div class="text-4xl font-bold text-amber-500">{{ booking_stats.pending }}</div>
+        {% endcomponent %}
+
+        {% component "unfold/components/card.html" with title="Confirmed" class="text-center" %}
+            <div class="text-4xl font-bold text-emerald-500">{{ booking_stats.confirmed }}</div>
+        {% endcomponent %}
+
+        {% component "unfold/components/card.html" with title="Cancelled" class="text-center" %}
+            <div class="text-4xl font-bold text-red-500">{{ booking_stats.cancelled }}</div>
+        {% endcomponent %}
+    </div>
+
+    <!-- Charts Row -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {% component "unfold/components/card.html" with title="Booking Status Distribution" %}
+            <div class="relative w-full">
+                <canvas class="chart" data-type="bar" data-value="{{ booking_chart }}" height="300"></canvas>
+            </div>
+        {% endcomponent %}
+
+        {% component "unfold/components/card.html" with title="Bookings Last 7 Days" %}
+            <div class="relative w-full">
+                <canvas class="chart" data-type="line" data-value="{{ booking_trends }}" height="300"></canvas>
+            </div>
+        {% endcomponent %}
+    </div>
+
+    <!-- Recent Bookings Table -->
+    {% component "unfold/components/card.html" with title="Recent Bookings" %}
+        {% component "unfold/components/table.html" with table=recent_bookings striped=True %}
+        {% endcomponent %}
+    {% endcomponent %}
+{% endblock %}
