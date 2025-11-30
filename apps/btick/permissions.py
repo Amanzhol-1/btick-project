@@ -1,6 +1,92 @@
 from rest_framework import permissions
 
-from .models import OrganizationMembership, VenueMembership, OrganizationRole, VenueRole
+from .models import Organization, OrganizationMembership, VenueMembership, OrganizationRole, VenueRole
+
+
+# =============================================================================
+# Group-Based Permission Classes
+# =============================================================================
+
+class IsInGroup(permissions.BasePermission):
+    """
+    Base class for group-based permissions.
+    Subclasses should set the `group_name` attribute.
+    """
+    group_name = None
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        if request.user.is_staff or request.user.is_superuser:
+            return True
+        return request.user.groups.filter(name=self.group_name).exists()
+
+
+class IsCustomer(IsInGroup):
+    """Permission for users in the 'Customers' group."""
+    group_name = 'Customers'
+    message = "You must be a registered customer to perform this action."
+
+
+class IsOrganizer(IsInGroup):
+    """Permission for users in the 'Organizers' group."""
+    group_name = 'Organizers'
+    message = "You must be an organizer to perform this action."
+
+
+class IsVenueManagerGroup(IsInGroup):
+    """Permission for users in the 'Venue Managers' group."""
+    group_name = 'Venue Managers'
+    message = "You must be a venue manager to perform this action."
+
+
+class IsSupportStaff(IsInGroup):
+    """Permission for users in the 'Support Staff' group."""
+    group_name = 'Support Staff'
+    message = "You must be support staff to perform this action."
+
+
+class IsAdminGroup(IsInGroup):
+    """Permission for users in the 'Admins' group."""
+    group_name = 'Admins'
+    message = "You must be an admin to perform this action."
+
+
+class IsOrganizerOrAdmin(permissions.BasePermission):
+    """
+    Permission for users in either 'Organizers' or 'Admins' group.
+    """
+    message = "You must be an organizer or admin to perform this action."
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        if request.user.is_staff or request.user.is_superuser:
+            return True
+        return request.user.groups.filter(
+            name__in=['Organizers', 'Admins']
+        ).exists()
+
+
+class IsSupportOrAdmin(permissions.BasePermission):
+    """
+    Permission for users in either 'Support Staff' or 'Admins' group.
+    """
+    message = "You must be support staff or admin to perform this action."
+
+    def has_permission(self, request, view):
+        if not request.user.is_authenticated:
+            return False
+        if request.user.is_staff or request.user.is_superuser:
+            return True
+        return request.user.groups.filter(
+            name__in=['Support Staff', 'Admins']
+        ).exists()
+
+
+# =============================================================================
+# Object-Level Permission Classes
+# =============================================================================
 
 
 class IsOwnerOrReadOnly(permissions.BasePermission):
@@ -40,7 +126,8 @@ class CanCancelOwnBooking(permissions.BasePermission):
 class IsOrganizationMember(permissions.BasePermission):
     """
     Permission to check if user is a member of the organization.
-    Works with objects that have an `organization` attribute.
+    Works with objects that have an `organization` attribute,
+    or with Organization objects directly.
     """
     message = "You must be a member of this organization."
 
@@ -48,7 +135,12 @@ class IsOrganizationMember(permissions.BasePermission):
         if request.user.is_staff or request.user.is_superuser:
             return True
 
-        organization = getattr(obj, 'organization', None)
+        # If obj IS an Organization, check membership directly
+        if isinstance(obj, Organization):
+            organization = obj
+        else:
+            organization = getattr(obj, 'organization', None)
+
         if not organization:
             return False
 
@@ -62,6 +154,8 @@ class IsOrganizationOwnerOrManager(permissions.BasePermission):
     """
     Permission to check if user is an owner or manager of the organization.
     Required for creating/modifying events.
+    Works with objects that have an `organization` attribute,
+    or with Organization objects directly.
     """
     message = "You must be an owner or manager of this organization."
 
@@ -69,7 +163,12 @@ class IsOrganizationOwnerOrManager(permissions.BasePermission):
         if request.user.is_staff or request.user.is_superuser:
             return True
 
-        organization = getattr(obj, 'organization', None)
+        # If obj IS an Organization, check membership directly
+        if isinstance(obj, Organization):
+            organization = obj
+        else:
+            organization = getattr(obj, 'organization', None)
+
         if not organization:
             return False
 

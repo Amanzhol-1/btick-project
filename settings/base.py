@@ -47,6 +47,9 @@ DJANGO_AND_THIRD_PARTY_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'rest_framework_simplejwt.token_blacklist',
+
+    # API Documentation
+    'drf_spectacular',
 ]
 PROJECT_APPS = [
     'apps.accounts',
@@ -147,6 +150,25 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+# DRF Spectacular Settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'BTick API',
+    'DESCRIPTION': 'Event Ticketing Platform API - Manage events, bookings, organizations, and venues.',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'TAGS': [
+        {'name': 'Auth', 'description': 'Authentication endpoints (login, register, logout)'},
+        {'name': 'Events', 'description': 'Event management and browsing'},
+        {'name': 'Bookings', 'description': 'Ticket booking operations'},
+        {'name': 'Organizations', 'description': 'Organization management'},
+        {'name': 'Venues', 'description': 'Venue information'},
+        {'name': 'Categories', 'description': 'Event categories'},
+        {'name': 'Tickets', 'description': 'Ticket tier management'},
+    ],
 }
 
 
