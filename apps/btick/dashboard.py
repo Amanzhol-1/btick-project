@@ -40,7 +40,7 @@ def get_recent_bookings():
         'headers': ['User', 'Event', 'Ticket', 'Qty', 'Status', 'Created'],
         'rows': [
             [
-                b.user.username,
+                b.user.email,
                 b.event_ticket.event.title[:20],
                 b.event_ticket.ticket_type,
                 b.quantity,

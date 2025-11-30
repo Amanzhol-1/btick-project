@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
 from django.db import transaction, models
 from django.utils import timezone
@@ -22,6 +23,10 @@ from apps.btick.models import (
     Booking,
     EventStatus,
     BookingStatus,
+    OrganizationMembership,
+    VenueMembership,
+    OrganizationRole,
+    VenueRole,
 )
 
 User = get_user_model()
@@ -80,6 +85,11 @@ class Command(BaseCommand):
         tickets = self._seed_event_tickets(events)
         bookings = self._seed_bookings(fake, bookings_n, users, tickets)
 
+        # Create memberships and assign groups
+        org_memberships = self._seed_org_memberships(users, orgs)
+        venue_memberships = self._seed_venue_memberships(users, venues)
+        self._assign_groups(users, org_memberships, venue_memberships)
+
         self._recount_sold_per_ticket()
 
         self.stdout.write(self.style.SUCCESS(
@@ -87,20 +97,24 @@ class Command(BaseCommand):
             f"  Users: {len(users)}\n"
             f"  Orgs: {len(orgs)} | Venues: {len(venues)} | Categories: {len(cats)}\n"
             f"  Events: {len(events)} | Tickets: {len(tickets)}\n"
-            f"  Bookings: {len(bookings)}"
+            f"  Bookings: {len(bookings)}\n"
+            f"  Org Memberships: {len(org_memberships)} | Venue Memberships: {len(venue_memberships)}"
         ))
 
     # ---------- helpers ----------
 
     def _flush_all(self):
         self.stdout.write(self.style.WARNING("Flushing old data..."))
-        Booking.objects.all().delete()
-        EventsTicket.objects.all().delete()
-        Event.objects.all().delete()
-        EventCategory.objects.all().delete()
-        Venue.objects.all().delete()
-        Organization.objects.all().delete()
-        # Пользователей-админов не трогаем
+        # Flush memberships first (depend on users, orgs, venues)
+        OrganizationMembership.objects.all().hard_delete()
+        VenueMembership.objects.all().hard_delete()
+        Booking.objects.all().hard_delete()
+        EventsTicket.objects.all().hard_delete()
+        Event.objects.all().hard_delete()
+        EventCategory.objects.all().hard_delete()
+        Venue.objects.all().hard_delete()
+        Organization.objects.all().hard_delete()
+        # Don't touch superusers
         User.objects.exclude(is_superuser=True).delete()
 
     def _seed_users(self, fake: Faker, n: int):
@@ -108,6 +122,13 @@ class Command(BaseCommand):
         for _ in range(n):
             email = fake.unique.email()
             u = User(email=email)
+            # Populate profile fields
+            u.first_name = fake.first_name()
+            u.last_name = fake.last_name()
+            u.phone = fake.phone_number()[:20]  # Limit to field max_length
+            if hasattr(u, "bio"):
+                u.bio = fake.sentence(nb_words=10)
+            # Handle legacy username field if exists
             if hasattr(u, "username"):
                 u.username = email.split("@")[0]
             u.set_password("password123")
@@ -250,3 +271,109 @@ class Command(BaseCommand):
             t.sold = min(totals.get(t.id, 0), t.quota)
         if tickets:
             EventsTicket.objects.bulk_update(tickets, ["sold"])
+
+    def _seed_org_memberships(self, users: list, orgs: list) -> list:
+        """
+        Assign users to organizations with different roles.
+        Each org gets 1 OWNER and 1-2 MANAGERS from the user pool.
+        """
+        if not users or not orgs:
+            return []
+
+        memberships = []
+        available_users = list(users)
+        random.shuffle(available_users)
+
+        for org in orgs:
+            # Assign an owner
+            if available_users:
+                owner = available_users.pop(0)
+                memberships.append(OrganizationMembership(
+                    user=owner,
+                    organization=org,
+                    role=OrganizationRole.OWNER,
+                ))
+
+            # Assign 1-2 managers
+            num_managers = min(random.randint(1, 2), len(available_users))
+            for _ in range(num_managers):
+                if available_users:
+                    manager = available_users.pop(0)
+                    memberships.append(OrganizationMembership(
+                        user=manager,
+                        organization=org,
+                        role=OrganizationRole.MANAGER,
+                    ))
+
+        OrganizationMembership.objects.bulk_create(memberships)
+        return memberships
+
+    def _seed_venue_memberships(self, users: list, venues: list) -> list:
+        """
+        Assign users as venue managers.
+        Each venue gets 1 MANAGER from the user pool.
+        """
+        if not users or not venues:
+            return []
+
+        memberships = []
+        # Use users who aren't already org owners/managers
+        org_user_ids = set(
+            OrganizationMembership.objects.values_list('user_id', flat=True)
+        )
+        available_users = [u for u in users if u.id not in org_user_ids]
+
+        if not available_users:
+            # Fall back to all users if needed
+            available_users = list(users)
+
+        random.shuffle(available_users)
+
+        for venue in venues:
+            if available_users:
+                manager = available_users.pop(0)
+                memberships.append(VenueMembership(
+                    user=manager,
+                    venue=venue,
+                    role=VenueRole.MANAGER,
+                ))
+
+        VenueMembership.objects.bulk_create(memberships)
+        return memberships
+
+    def _assign_groups(self, users: list, org_memberships: list, venue_memberships: list):
+        """
+        Assign users to permission groups based on their roles.
+        - All non-staff users -> Customers
+        - Org owners/managers -> Organizers
+        - Venue managers -> Venue Managers
+        """
+        # Get or skip if groups don't exist
+        try:
+            customers_group = Group.objects.get(name='Customers')
+            organizers_group = Group.objects.get(name='Organizers')
+            venue_managers_group = Group.objects.get(name='Venue Managers')
+        except Group.DoesNotExist:
+            self.stdout.write(self.style.WARNING(
+                "Permission groups not found. Run 'python manage.py setup_groups' first."
+            ))
+            return
+
+        # Get user IDs by role
+        org_user_ids = set(m.user_id for m in org_memberships)
+        venue_user_ids = set(m.user_id for m in venue_memberships)
+
+        for user in users:
+            # All users are customers
+            user.groups.add(customers_group)
+
+            # Org members also get Organizers group
+            if user.id in org_user_ids:
+                user.groups.add(organizers_group)
+
+            # Venue managers also get Venue Managers group
+            if user.id in venue_user_ids:
+                user.groups.add(venue_managers_group)
+
+        self.stdout.write(f"  Assigned groups: {len(users)} customers, "
+                         f"{len(org_user_ids)} organizers, {len(venue_user_ids)} venue managers")
