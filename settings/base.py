@@ -12,6 +12,9 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 
+# Simple JWT
+from datetime import timedelta
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 WSGI_APPLICATION = 'settings.wsgi.application'
@@ -46,7 +49,7 @@ DJANGO_AND_THIRD_PARTY_APPS = [
     'rest_framework_simplejwt.token_blacklist',
 ]
 PROJECT_APPS = [
-    'apps.accounts',  # Must be before apps that reference User
+    'apps.accounts',
     'apps.abstracts',
     'apps.btick',
 ]
@@ -81,17 +84,6 @@ TEMPLATES = [
         },
     },
 ]
-
-
-# Database
-# https://docs.djangoproject.com/en/5.2/ref/settings/#databases
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
-}
 
 
 # Password validation
@@ -157,8 +149,6 @@ REST_FRAMEWORK = {
     ),
 }
 
-# Simple JWT
-from datetime import timedelta
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
