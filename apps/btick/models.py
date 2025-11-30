@@ -76,6 +76,12 @@ class Organization(BaseEntity):
     class Meta:
         verbose_name = 'Organization'
         verbose_name_plural = 'Organizations'
+        permissions = [
+            ('view_own_organization', 'Can view own organization'),
+            ('manage_organization_events', 'Can manage organization events'),
+            ('view_organization_analytics', 'Can view organization analytics'),
+            ('manage_organization_members', 'Can manage organization members'),
+        ]
 
     def __str__(self):
         return self.name
@@ -103,6 +109,11 @@ class Venue(BaseEntity):
     class Meta:
         verbose_name = 'Venue'
         verbose_name_plural = 'Venues'
+        permissions = [
+            ('view_venue_schedule', 'Can view events scheduled at venue'),
+            ('manage_venue_capacity', 'Can manage venue capacity'),
+            ('view_venue_analytics', 'Can view venue analytics'),
+        ]
 
     def __str__(self):
         return self.name
@@ -169,7 +180,14 @@ class Event(BaseEntity):
         verbose_name = 'Event'
         verbose_name_plural = 'Events'
         constraints = [
-            CheckConstraint(check=Q(ends_at__gt=F("starts_at")), name = "event_ends_after_start")
+            CheckConstraint(check=Q(ends_at__gt=F("starts_at")), name="event_ends_after_start")
+        ]
+        permissions = [
+            ('publish_event', 'Can publish draft events'),
+            ('cancel_event', 'Can cancel events'),
+            ('view_draft_events', 'Can view unpublished/draft events'),
+            ('view_event_analytics', 'Can view event booking/sales analytics'),
+            ('manage_event_tickets', 'Can manage event ticket tiers'),
         ]
 
     def __str__(self):
@@ -214,6 +232,11 @@ class EventsTicket(BaseEntity):
             CheckConstraint(check=Q(quota__gte=0), name="quota_non_negative"),
             CheckConstraint(check=Q(sold__gte=0), name="sold_non_negative"),
         ]
+        permissions = [
+            ('view_ticket_inventory', 'Can view ticket inventory (quota/sold)'),
+            ('adjust_ticket_quota', 'Can adjust ticket quota'),
+            ('view_ticket_sales', 'Can view ticket sales metrics'),
+        ]
 
     def __str__(self):
         return self.ticket_type
@@ -248,6 +271,84 @@ class Booking(BaseEntity):
         constraints = [
             CheckConstraint(check=Q(quantity__gt=1), name="booking_quantity_ge_1"),
         ]
+        permissions = [
+            ('view_own_bookings', 'Can view own bookings only'),
+            ('cancel_own_booking', 'Can cancel own pending bookings'),
+            ('view_event_bookings', 'Can view all bookings for managed events'),
+            ('confirm_booking', 'Can confirm pending bookings'),
+            ('refund_booking', 'Can refund/cancel any booking'),
+        ]
 
     def __str__(self):
         return f"Booking {self.pk}> {self.user_id} x{self.quantity} {self.event_ticket.ticket_type}"
+
+
+class OrganizationRole(models.TextChoices):
+    """
+    Roles for organization membership.
+    """
+    OWNER = 'OWNER', 'Owner'
+    MANAGER = 'MANAGER', 'Manager'
+    STAFF = 'STAFF', 'Staff'
+
+
+class OrganizationMembership(BaseEntity):
+    """
+    Links users to organizations they manage or work for.
+
+    Attributes:
+        user: The user who is a member.
+        organization: The organization they belong to.
+        role: Their role within the organization (OWNER, MANAGER, STAFF).
+
+    Constraints:
+        - Unique combination of user and organization.
+    """
+    user = models.ForeignKey(User, on_delete=CASCADE, related_name='organization_memberships')
+    organization = models.ForeignKey(Organization, on_delete=CASCADE, related_name='memberships')
+    role = models.CharField(max_length=20, choices=OrganizationRole.choices, default=OrganizationRole.STAFF)
+
+    class Meta:
+        verbose_name = 'Organization Membership'
+        verbose_name_plural = 'Organization Memberships'
+        constraints = [
+            UniqueConstraint(fields=['user', 'organization'], name='unique_user_organization'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} - {self.organization.name} ({self.role})"
+
+
+class VenueRole(models.TextChoices):
+    """
+    Roles for venue membership.
+    """
+    MANAGER = 'MANAGER', 'Manager'
+    STAFF = 'STAFF', 'Staff'
+
+
+class VenueMembership(BaseEntity):
+    """
+    Links users to venues they manage or work at.
+
+    Attributes:
+        user: The user who is a member.
+        venue: The venue they manage.
+        role: Their role at the venue (MANAGER, STAFF).
+
+    Constraints:
+        - Unique combination of user and venue.
+    """
+    user = models.ForeignKey(User, on_delete=CASCADE, related_name='venue_memberships')
+    venue = models.ForeignKey(Venue, on_delete=CASCADE, related_name='memberships')
+    role = models.CharField(max_length=20, choices=VenueRole.choices, default=VenueRole.STAFF)
+
+    class Meta:
+        verbose_name = 'Venue Membership'
+        verbose_name_plural = 'Venue Memberships'
+        constraints = [
+            UniqueConstraint(fields=['user', 'venue'], name='unique_user_venue'),
+        ]
+
+    def __str__(self):
+        return f"{self.user.email} - {self.venue.name} ({self.role})"
