@@ -42,7 +42,7 @@
 
 ### 4. List events
 
-- **URL:** `/api/events/`
+- **URL:** `/api/v1/events/`
 - **Method:** `GET`
 - **Auth:** Optional
 - **Description:** Get a list of events. You can filter by category, status, and start date.
@@ -55,14 +55,14 @@
 
 ### 5. Retrieve event
 
-- **URL:** `/api/events/{id}/`
+- **URL:** `/api/v1/events/{id}/`
 - **Method:** `GET`
 - **Auth:** Optional
 - **Description:** Detailed information about the event.
 
 ### 6. List tickets for event
 
-- **URL:** `/api/events/{id}/tickets/`
+- **URL:** `/api/v1/events/{id}/tickets/`
 - **Method:** `GET`
 - **Auth:** Optional
 - **Description:** List of ticket types for a specific event (Standard, VIP, etc.).
@@ -73,7 +73,7 @@
 
 ### 7. Create booking
 
-- **URL:** `/api/bookings/`
+- **URL:** `/api/v1/bookings/`
 - **Method:** `POST`
 - **Auth:** JWT (user must be logged in)
 - **Description:** Book tickets for an event.
@@ -94,7 +94,7 @@
 
 ### 9. Cancel booking
 
-- **URL:** `/api/bookings/{id}/cancel/`
+- **URL:** `/api/v1/bookings/{id}/cancel/`
 - **Method:** `POST` or `PATCH`
 - **Auth:** JWT
 - **Description:** Cancel a booking (status → `CANCELLED`), only available to the owner or admin.
@@ -105,7 +105,7 @@
 
 ### 10. Create event (organizer)
 
-- **URL:** `/api/events/`
+- **URL:** `/api/v1/events/`
 - **Method:** `POST`
 - **Auth:** JWT + custom permission `IsOrganizerOrAdmin`
 - **Description:** Create a new event.
