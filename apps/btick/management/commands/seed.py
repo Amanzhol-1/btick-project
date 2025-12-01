@@ -1,4 +1,3 @@
-# apps/btick/management/commands/seed.py
 from __future__ import annotations
 
 import random
@@ -6,9 +5,8 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Group
 from django.core.management.base import BaseCommand
-from django.db import transaction, models
+from django.db import transaction
 from django.utils import timezone
 from django.db.models import Sum
 
@@ -23,31 +21,42 @@ from apps.btick.models import (
     Booking,
     EventStatus,
     BookingStatus,
-    OrganizationMembership,
-    VenueMembership,
-    OrganizationRole,
-    VenueRole,
 )
+
+"""
+Management command for populating the local database with test data
+for the BTick project (users, organizations, venues, events,
+ticket and booking types).
+"""
 
 User = get_user_model()
 
 
 def _ticket_codes_from_model() -> list[str]:
     """
-    Берём коды из choices поля EventsTicket.ticket_type, чтобы не зависеть
-    от наличия отдельно объявленного класса TicketType.
+    We take the codes from the EventsTicket.ticket_type field's choices 
+    so as not to depend on the existence of a separate TicketType class.
     """
     field = EventsTicket._meta.get_field("ticket_type")
     choices = getattr(field, "choices", None) or []
     codes = [code for code, _ in choices]
-    # запасной список на случай пустых choices
+    # a backup list in case the choices are suddenly empty
     return codes or ["STANDARD", "VIP", "EARLY_BIRD", "STUDENT", "GROUP"]
 
 
 class Command(BaseCommand):
+    """
+    Django management command `seed`, which generates 
+    test data for local development and testing.
+    """
+
     help = "Seed DEV database with sample data for btick."
 
     def add_arguments(self, parser):
+        """
+        Description of the command's CLI arguments 
+        (number of users, events, bookings, and the --flush flag for clearing the database before generation).
+        """
         parser.add_argument("--users", type=int, default=15, help="Количество пользователей")
         parser.add_argument("--orgs", type=int, default=4, help="Количество организаций")
         parser.add_argument("--venues", type=int, default=5, help="Количество площадок")
@@ -59,9 +68,16 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **opts):
-        # Защита от запуска в проде
+        """
+        The basic logic of the command:
+        - with --flush, we clear the data step by step,
+        - create users, organizations, venues, event categories,
+        events, tickets, and bookings,
+        - recalculate the "sold" field for tickets.
+        Everything is done in a single transaction.
+        """
         if not getattr(settings, "DEBUG", True):
-            self.stderr.write(self.style.ERROR("DEBUG=False — сидер предназначен только для DEV."))
+            self.stderr.write(self.style.ERROR("DEBUG=False — The seeder is intended only for DEVs."))
             return
 
         fake = Faker(opts["locale"])
@@ -85,11 +101,6 @@ class Command(BaseCommand):
         tickets = self._seed_event_tickets(events)
         bookings = self._seed_bookings(fake, bookings_n, users, tickets)
 
-        # Create memberships and assign groups
-        org_memberships = self._seed_org_memberships(users, orgs)
-        venue_memberships = self._seed_venue_memberships(users, venues)
-        self._assign_groups(users, org_memberships, venue_memberships)
-
         self._recount_sold_per_ticket()
 
         self.stdout.write(self.style.SUCCESS(
@@ -97,38 +108,34 @@ class Command(BaseCommand):
             f"  Users: {len(users)}\n"
             f"  Orgs: {len(orgs)} | Venues: {len(venues)} | Categories: {len(cats)}\n"
             f"  Events: {len(events)} | Tickets: {len(tickets)}\n"
-            f"  Bookings: {len(bookings)}\n"
-            f"  Org Memberships: {len(org_memberships)} | Venue Memberships: {len(venue_memberships)}"
+            f"  Bookings: {len(bookings)}"
         ))
 
     # ---------- helpers ----------
 
     def _flush_all(self):
+        """
+        Completely clear domain model data (but do not touch superusers).
+        """
         self.stdout.write(self.style.WARNING("Flushing old data..."))
-        # Flush memberships first (depend on users, orgs, venues)
-        OrganizationMembership.objects.all().hard_delete()
-        VenueMembership.objects.all().hard_delete()
-        Booking.objects.all().hard_delete()
-        EventsTicket.objects.all().hard_delete()
-        Event.objects.all().hard_delete()
-        EventCategory.objects.all().hard_delete()
-        Venue.objects.all().hard_delete()
-        Organization.objects.all().hard_delete()
-        # Don't touch superusers
+        Booking.objects.all().delete()
+        EventsTicket.objects.all().delete()
+        Event.objects.all().delete()
+        EventCategory.objects.all().delete()
+        Venue.objects.all().delete()
+        Organization.objects.all().delete()
+        # don't touch the admins
         User.objects.exclude(is_superuser=True).delete()
 
     def _seed_users(self, fake: Faker, n: int):
+        """
+        Generate n users.
+        Default password: password123
+        """
         created = []
         for _ in range(n):
             email = fake.unique.email()
             u = User(email=email)
-            # Populate profile fields
-            u.first_name = fake.first_name()
-            u.last_name = fake.last_name()
-            u.phone = fake.phone_number()[:20]  # Limit to field max_length
-            if hasattr(u, "bio"):
-                u.bio = fake.sentence(nb_words=10)
-            # Handle legacy username field if exists
             if hasattr(u, "username"):
                 u.username = email.split("@")[0]
             u.set_password("password123")
@@ -137,6 +144,9 @@ class Command(BaseCommand):
         return created
 
     def _seed_orgs(self, fake: Faker, n: int):
+        """
+        Generation of organizing organizations.
+        """
         objs = []
         for _ in range(n):
             objs.append(Organization(
@@ -148,6 +158,9 @@ class Command(BaseCommand):
         return list(Organization.objects.order_by("-id")[:n])
 
     def _seed_venues(self, fake: Faker, n: int):
+        """
+        Generation of venues for events.
+        """
         objs = []
         for _ in range(n):
             objs.append(Venue(
@@ -159,18 +172,25 @@ class Command(BaseCommand):
         return list(Venue.objects.order_by("-id")[:n])
 
     def _seed_categories(self, fake: Faker, n: int):
+        """
+        Generation of event categories (Music, IT, Sport...).
+        """
         seen = set()
         objs = []
         while len(objs) < n:
             name = fake.word().title()
             if name in seen:
-                name = f"{name} {len(objs)+1}"
+                name = f"{name} {len(objs) + 1}"
             seen.add(name)
             objs.append(EventCategory(name=name))
         EventCategory.objects.bulk_create(objs)
         return list(EventCategory.objects.order_by("-id")[:n])
 
     def _seed_events(self, fake: Faker, n: int, orgs, venues, cats):
+        """
+        Event generation: binding to organizer, venue, and category.
+        Maintaining the ends_at > starts_at invariant.
+        """
         tz = timezone.get_current_timezone()
         objs = []
         for _ in range(n):
@@ -183,7 +203,7 @@ class Command(BaseCommand):
                 title=fake.unique.catch_phrase(),
                 description=fake.paragraph(nb_sentences=3),
                 starts_at=start,
-                ends_at=end,  # соблюдаем constraint ends_at > starts_at
+                ends_at=end,
                 status=random.choice([EventStatus.DRAFT, EventStatus.PUBLISHED]),
                 capacity=random.choice([None, random.randint(100, 5000)]),
             ))
@@ -192,7 +212,7 @@ class Command(BaseCommand):
 
     def _seed_event_tickets(self, events):
         """
-        Для каждого события создаём 2–4 типа билетов (уникально по (event, ticket_type)).
+        For each event, we create 2–4 ticket types (unique by (event, ticket_type)).
         """
         all_types = _ticket_codes_from_model()
 
@@ -214,15 +234,16 @@ class Command(BaseCommand):
                     ticket_type=tt,
                     price=price_map.get(tt, Decimal("5990.00")),
                     quota=random.randint(50, 500),
-                    sold=0,  # пересчитаем после бронирований
+                    sold=0,  # We will recalculate after bookings
                 ))
         EventsTicket.objects.bulk_create(to_create)
         return list(EventsTicket.objects.filter(event__in=events))
 
     def _seed_bookings(self, fake: Faker, n: int, users, tickets):
         """
-        Booking.quantity >= 2 (ваш CheckConstraint).
-        Для PENDING выставляем expires_at за 1 день до начала события.
+        Generating bookings:
+        - quantity >= 2 (validate CheckConstraint),
+        - for PENDING, set expires_at 1 day before the event.
         """
         if not tickets:
             return []
@@ -232,7 +253,7 @@ class Command(BaseCommand):
         for _ in range(n):
             ticket = random.choice(tickets)
             user = random.choice(users)
-            qty = random.randint(2, 5)  # >= 2 — важно!
+            qty = random.randint(2, 5)  # >= 2 — important for your CheckConstraint
 
             status = random.choices(
                 population=[BookingStatus.PENDING, BookingStatus.CONFIRMED, BookingStatus.CANCELLED],
@@ -256,7 +277,7 @@ class Command(BaseCommand):
 
     def _recount_sold_per_ticket(self):
         """
-        sold = сумма quantity по CONFIRMED-бронированиям, ограничиваем sold <= quota.
+        sold = the amount of quantity for CONFIRMED bookings, but not more than quota.
         """
         confirmed = (
             Booking.objects
@@ -271,109 +292,3 @@ class Command(BaseCommand):
             t.sold = min(totals.get(t.id, 0), t.quota)
         if tickets:
             EventsTicket.objects.bulk_update(tickets, ["sold"])
-
-    def _seed_org_memberships(self, users: list, orgs: list) -> list:
-        """
-        Assign users to organizations with different roles.
-        Each org gets 1 OWNER and 1-2 MANAGERS from the user pool.
-        """
-        if not users or not orgs:
-            return []
-
-        memberships = []
-        available_users = list(users)
-        random.shuffle(available_users)
-
-        for org in orgs:
-            # Assign an owner
-            if available_users:
-                owner = available_users.pop(0)
-                memberships.append(OrganizationMembership(
-                    user=owner,
-                    organization=org,
-                    role=OrganizationRole.OWNER,
-                ))
-
-            # Assign 1-2 managers
-            num_managers = min(random.randint(1, 2), len(available_users))
-            for _ in range(num_managers):
-                if available_users:
-                    manager = available_users.pop(0)
-                    memberships.append(OrganizationMembership(
-                        user=manager,
-                        organization=org,
-                        role=OrganizationRole.MANAGER,
-                    ))
-
-        OrganizationMembership.objects.bulk_create(memberships)
-        return memberships
-
-    def _seed_venue_memberships(self, users: list, venues: list) -> list:
-        """
-        Assign users as venue managers.
-        Each venue gets 1 MANAGER from the user pool.
-        """
-        if not users or not venues:
-            return []
-
-        memberships = []
-        # Use users who aren't already org owners/managers
-        org_user_ids = set(
-            OrganizationMembership.objects.values_list('user_id', flat=True)
-        )
-        available_users = [u for u in users if u.id not in org_user_ids]
-
-        if not available_users:
-            # Fall back to all users if needed
-            available_users = list(users)
-
-        random.shuffle(available_users)
-
-        for venue in venues:
-            if available_users:
-                manager = available_users.pop(0)
-                memberships.append(VenueMembership(
-                    user=manager,
-                    venue=venue,
-                    role=VenueRole.MANAGER,
-                ))
-
-        VenueMembership.objects.bulk_create(memberships)
-        return memberships
-
-    def _assign_groups(self, users: list, org_memberships: list, venue_memberships: list):
-        """
-        Assign users to permission groups based on their roles.
-        - All non-staff users -> Customers
-        - Org owners/managers -> Organizers
-        - Venue managers -> Venue Managers
-        """
-        # Get or skip if groups don't exist
-        try:
-            customers_group = Group.objects.get(name='Customers')
-            organizers_group = Group.objects.get(name='Organizers')
-            venue_managers_group = Group.objects.get(name='Venue Managers')
-        except Group.DoesNotExist:
-            self.stdout.write(self.style.WARNING(
-                "Permission groups not found. Run 'python manage.py setup_groups' first."
-            ))
-            return
-
-        # Get user IDs by role
-        org_user_ids = set(m.user_id for m in org_memberships)
-        venue_user_ids = set(m.user_id for m in venue_memberships)
-
-        for user in users:
-            # All users are customers
-            user.groups.add(customers_group)
-
-            # Org members also get Organizers group
-            if user.id in org_user_ids:
-                user.groups.add(organizers_group)
-
-            # Venue managers also get Venue Managers group
-            if user.id in venue_user_ids:
-                user.groups.add(venue_managers_group)
-
-        self.stdout.write(f"  Assigned groups: {len(users)} customers, "
-                         f"{len(org_user_ids)} organizers, {len(venue_user_ids)} venue managers")
