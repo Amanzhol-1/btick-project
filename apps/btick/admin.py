@@ -1,35 +1,50 @@
+# Python modules
+from typing import Any
+
+# Django modules
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import (
-    Organization,
-    Venue,
-    EventCategory,
-    Event,
-    EventsTicket,
+from django.utils.safestring import SafeString
+
+# Django Rest Framework modules
+
+# Third-party modules
+from unfold.admin import ModelAdmin, TabularInline
+
+# Project modules
+from apps.abstracts.admin import SoftDeleteAdmin, SoftDeleteFilter
+from apps.btick.models import (
     Booking,
+    Event,
+    EventCategory,
+    EventsTicket,
+    Organization,
     OrganizationMembership,
+    Venue,
     VenueMembership,
 )
-from unfold.admin import ModelAdmin, TabularInline
-from apps.abstracts.admin import SoftDeleteAdmin, SoftDeleteFilter
 
 
 class OrganizationMembershipInlineForOrg(TabularInline):
+    """Inline admin for organization memberships."""
+
     model = OrganizationMembership
     extra = 1
-    fields = ('user', 'role', 'is_active')
-    autocomplete_fields = ('user',)
+    fields = ("user", "role", "is_active")
+    autocomplete_fields = ("user",)
 
 
 @admin.register(Organization)
 class OrganizationAdmin(SoftDeleteAdmin, ModelAdmin):
+    """Admin configuration for Organization model."""
+
     list_display = (
         "name",
         "website",
         "contact_email",
         "is_active",
         "created_at",
-        "deleted_at"
+        "deleted_at",
     )
     list_filter = (SoftDeleteFilter, "is_active", "created_at")
     search_fields = ("name", "contact_email", "website")
@@ -39,21 +54,25 @@ class OrganizationAdmin(SoftDeleteAdmin, ModelAdmin):
 
 
 class VenueMembershipInlineForVenue(TabularInline):
+    """Inline admin for venue memberships."""
+
     model = VenueMembership
     extra = 1
-    fields = ('user', 'role', 'is_active')
-    autocomplete_fields = ('user',)
+    fields = ("user", "role", "is_active")
+    autocomplete_fields = ("user",)
 
 
 @admin.register(Venue)
 class VenueAdmin(SoftDeleteAdmin, ModelAdmin):
+    """Admin configuration for Venue model."""
+
     list_display = (
         "name",
         "address",
         "capacity",
         "is_active",
         "created_at",
-        "deleted_at"
+        "deleted_at",
     )
     list_filter = (SoftDeleteFilter, "is_active", "created_at")
     search_fields = ("name", "address")
@@ -64,11 +83,13 @@ class VenueAdmin(SoftDeleteAdmin, ModelAdmin):
 
 @admin.register(EventCategory)
 class EventCategoryAdmin(SoftDeleteAdmin, ModelAdmin):
+    """Admin configuration for EventCategory model."""
+
     list_display = (
         "name",
         "is_active",
         "created_at",
-        "deleted_at"
+        "deleted_at",
     )
     list_filter = (SoftDeleteFilter, "is_active")
     search_fields = ("name",)
@@ -78,6 +99,8 @@ class EventCategoryAdmin(SoftDeleteAdmin, ModelAdmin):
 
 @admin.register(Event)
 class EventAdmin(SoftDeleteAdmin, ModelAdmin):
+    """Admin configuration for Event model."""
+
     list_display = (
         "title",
         "organization",
@@ -87,7 +110,7 @@ class EventAdmin(SoftDeleteAdmin, ModelAdmin):
         "ends_at",
         "status",
         "capacity",
-        "deleted_at"
+        "deleted_at",
     )
     list_filter = (SoftDeleteFilter, "status", "category", "organization", "starts_at", "is_active")
     search_fields = ("title", "description", "organization__name", "venue__name")
@@ -98,23 +121,25 @@ class EventAdmin(SoftDeleteAdmin, ModelAdmin):
 
     fieldsets = (
         ("Basic Information", {
-            "fields": ("title", "description", "status")
+            "fields": ("title", "description", "status"),
         }),
         ("Relations", {
-            "fields": ("organization", "venue", "category")
+            "fields": ("organization", "venue", "category"),
         }),
         ("Schedule & Capacity", {
-            "fields": ("starts_at", "ends_at", "capacity")
+            "fields": ("starts_at", "ends_at", "capacity"),
         }),
         ("System Fields", {
             "fields": ("is_active", "created_at", "updated_at", "deleted_at"),
-            "classes": ("collapse",)
-        })
+            "classes": ("collapse",),
+        }),
     )
 
 
 @admin.register(EventsTicket)
 class EventsTicketAdmin(SoftDeleteAdmin, ModelAdmin):
+    """Admin configuration for EventsTicket model."""
+
     list_display = (
         "ticket_type",
         "event",
@@ -123,7 +148,7 @@ class EventsTicketAdmin(SoftDeleteAdmin, ModelAdmin):
         "sold",
         "available_tickets",
         "is_active",
-        "deleted_at"
+        "deleted_at",
     )
     list_filter = (SoftDeleteFilter, "ticket_type", "is_active", "created_at")
     search_fields = ("event__title",)
@@ -133,20 +158,21 @@ class EventsTicketAdmin(SoftDeleteAdmin, ModelAdmin):
 
     fieldsets = (
         ("Ticket Information", {
-            "fields": ("event", "ticket_type", "price")
+            "fields": ("event", "ticket_type", "price"),
         }),
         ("Availability", {
-            "fields": ("quota", "sold", "available_tickets")
+            "fields": ("quota", "sold", "available_tickets"),
         }),
         ("System Fields", {
             "fields": ("is_active", "created_at", "updated_at", "deleted_at"),
-            "classes": ("collapse",)
-        })
+            "classes": ("collapse",),
+        }),
     )
 
     @admin.display(description="Available")
-    def available_tickets(self, obj):
-        remaining = obj.quota - obj.sold
+    def available_tickets(self, obj: Any) -> SafeString:
+        """Calculate and display available tickets with color coding."""
+        remaining: int = obj.quota - obj.sold
         if remaining <= 0:
             color = "red"
         elif remaining < obj.quota * 0.2:
@@ -156,12 +182,14 @@ class EventsTicketAdmin(SoftDeleteAdmin, ModelAdmin):
         return format_html(
             '<span style="color: {};">{}</span>',
             color,
-            remaining
+            remaining,
         )
 
 
 @admin.register(Booking)
 class BookingAdmin(SoftDeleteAdmin, ModelAdmin):
+    """Admin configuration for Booking model."""
+
     list_display = (
         "id",
         "user",
@@ -170,7 +198,7 @@ class BookingAdmin(SoftDeleteAdmin, ModelAdmin):
         "status",
         "expires_at",
         "created_at",
-        "deleted_at"
+        "deleted_at",
     )
     list_filter = (SoftDeleteFilter, "status", "created_at", "expires_at")
     search_fields = (
@@ -178,7 +206,7 @@ class BookingAdmin(SoftDeleteAdmin, ModelAdmin):
         "user__first_name",
         "user__last_name",
         "event_ticket__event__title",
-        "event_ticket__ticket_type"
+        "event_ticket__ticket_type",
     )
     list_select_related = ("user", "event_ticket", "event_ticket__event")
     readonly_fields = ("created_at", "updated_at", "deleted_at")
@@ -187,47 +215,51 @@ class BookingAdmin(SoftDeleteAdmin, ModelAdmin):
 
     fieldsets = (
         ("Booking Details", {
-            "fields": ("user", "event_ticket", "quantity", "status")
+            "fields": ("user", "event_ticket", "quantity", "status"),
         }),
         ("Timing", {
-            "fields": ("expires_at",)
+            "fields": ("expires_at",),
         }),
         ("System Fields", {
             "fields": ("is_active", "created_at", "updated_at", "deleted_at"),
-            "classes": ("collapse",)
-        })
+            "classes": ("collapse",),
+        }),
     )
 
 
 @admin.register(OrganizationMembership)
 class OrganizationMembershipAdmin(SoftDeleteAdmin, ModelAdmin):
+    """Admin configuration for OrganizationMembership model."""
+
     list_display = (
-        'user',
-        'organization',
-        'role',
-        'is_active',
-        'created_at',
+        "user",
+        "organization",
+        "role",
+        "is_active",
+        "created_at",
     )
-    list_filter = (SoftDeleteFilter, 'role', 'is_active', 'organization')
-    search_fields = ('user__email', 'user__first_name', 'user__last_name', 'organization__name')
-    list_select_related = ('user', 'organization')
-    readonly_fields = ('created_at', 'updated_at', 'deleted_at')
-    ordering = ('organization', 'user')
-    autocomplete_fields = ('user', 'organization')
+    list_filter = (SoftDeleteFilter, "role", "is_active", "organization")
+    search_fields = ("user__email", "user__first_name", "user__last_name", "organization__name")
+    list_select_related = ("user", "organization")
+    readonly_fields = ("created_at", "updated_at", "deleted_at")
+    ordering = ("organization", "user")
+    autocomplete_fields = ("user", "organization")
 
 
 @admin.register(VenueMembership)
 class VenueMembershipAdmin(SoftDeleteAdmin, ModelAdmin):
+    """Admin configuration for VenueMembership model."""
+
     list_display = (
-        'user',
-        'venue',
-        'role',
-        'is_active',
-        'created_at',
+        "user",
+        "venue",
+        "role",
+        "is_active",
+        "created_at",
     )
-    list_filter = (SoftDeleteFilter, 'role', 'is_active', 'venue')
-    search_fields = ('user__email', 'user__first_name', 'user__last_name', 'venue__name')
-    list_select_related = ('user', 'venue')
-    readonly_fields = ('created_at', 'updated_at', 'deleted_at')
-    ordering = ('venue', 'user')
-    autocomplete_fields = ('user', 'venue')
+    list_filter = (SoftDeleteFilter, "role", "is_active", "venue")
+    search_fields = ("user__email", "user__first_name", "user__last_name", "venue__name")
+    list_select_related = ("user", "venue")
+    readonly_fields = ("created_at", "updated_at", "deleted_at")
+    ordering = ("venue", "user")
+    autocomplete_fields = ("user", "venue")

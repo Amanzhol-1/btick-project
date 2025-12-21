@@ -1,11 +1,18 @@
+# Python modules
+
+# Django modules
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.utils.translation import gettext_lazy as _
 
+# Django Rest Framework modules
+
+# Third-party modules
 from unfold.admin import ModelAdmin
 from unfold.forms import AdminPasswordChangeForm, UserChangeForm, UserCreationForm
 
-from .models import User
+# Project modules
+from apps.accounts.models import User
 
 
 @admin.register(User)

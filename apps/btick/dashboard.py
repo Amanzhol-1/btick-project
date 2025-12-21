@@ -1,20 +1,22 @@
 import json
+from typing import Any, Dict, List
 
 from django.db.models import Count
 from django.db.models.functions import TruncDate
+from django.http import HttpRequest
 from django.utils import timezone
 from datetime import timedelta
 
 from apps.btick.models import Booking, BookingStatus
 
 
-def get_booking_stats():
+def get_booking_stats() -> Dict[str, int]:
     """Get booking counts by status"""
     stats = Booking.objects.values('status').annotate(count=Count('id'))
     return {item['status']: item['count'] for item in stats}
 
 
-def get_booking_chart_data():
+def get_booking_chart_data() -> Dict[str, Any]:
     """Get data for bar chart"""
     stats = get_booking_stats()
     return {
@@ -30,7 +32,7 @@ def get_booking_chart_data():
     }
 
 
-def get_recent_bookings():
+def get_recent_bookings() -> Dict[str, Any]:
     """Get 10 most recent bookings"""
     bookings = Booking.objects.select_related(
         'user', 'event_ticket__event'
@@ -52,7 +54,7 @@ def get_recent_bookings():
     }
 
 
-def get_booking_trends():
+def get_booking_trends() -> Dict[str, Any]:
     """Get booking counts for last 7 days"""
     end_date = timezone.now().date()
     start_date = end_date - timedelta(days=6)
@@ -85,7 +87,7 @@ def get_booking_trends():
     }
 
 
-def dashboard_callback(request, context):
+def dashboard_callback(request: HttpRequest, context: Dict[str, Any]) -> Dict[str, Any]:
     """Main dashboard callback for Unfold admin"""
     stats = get_booking_stats()
 

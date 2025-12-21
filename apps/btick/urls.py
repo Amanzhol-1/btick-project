@@ -1,6 +1,10 @@
+# Django modules
 from django.urls import path, include
+
+# Django Rest Framework modules
 from rest_framework.routers import DefaultRouter
 
+# Project modules
 from apps.btick.views import (
     EventViewSet,
     EventCategoryViewSet,
@@ -10,17 +14,42 @@ from apps.btick.views import (
     TicketViewSet,
 )
 
-router = DefaultRouter()
 
-router.register(r'events', EventViewSet, basename='event')
-router.register(r'categories', EventCategoryViewSet, basename='category')
-router.register(r'venues', VenueViewSet, basename='venue')
-router.register(r'organizations', OrganizationViewSet, basename='organization')
-router.register(r'bookings', BookingViewSet, basename='booking')
-router.register(r'tickets', TicketViewSet, basename='ticket')
+router: DefaultRouter = DefaultRouter(trailing_slash=False)
 
-app_name = 'btick'
+router.register(
+    prefix="events",
+    viewset=EventViewSet,
+    basename="event",
+)
+router.register(
+    prefix="categories",
+    viewset=EventCategoryViewSet,
+    basename="category",
+)
+router.register(
+    prefix="venues",
+    viewset=VenueViewSet,
+    basename="venue",
+)
+router.register(
+    prefix="organizations",
+    viewset=OrganizationViewSet,
+    basename="organization",
+)
+router.register(
+    prefix="bookings",
+    viewset=BookingViewSet,
+    basename="booking",
+)
+router.register(
+    prefix="tickets",
+    viewset=TicketViewSet,
+    basename="ticket",
+)
 
-urlpatterns = [
-    path('', include(router.urls)),
+app_name: str = "btick"
+
+urlpatterns: list = [
+    path("", include(router.urls)),
 ]

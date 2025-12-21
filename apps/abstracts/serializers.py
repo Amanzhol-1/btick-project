@@ -1,21 +1,34 @@
+# Python modules
+from typing import Any
+
+# Django modules
+
+# Django Rest Framework modules
 from rest_framework import serializers
 
+# Third-party modules
+
+# Project modules
 from apps.accounts.models import User
 
 
 class UserForeignSerializer(serializers.ModelSerializer):
     """
     Serializer for representing users in foreign key relationships.
+
     Used when embedding user data in other serializers.
     """
+
     full_name = serializers.SerializerMethodField()
 
     class Meta:
-        model = User
-        fields = ['id', 'email', 'full_name', 'date_joined']
-        read_only_fields = fields
+        """Meta options for UserForeignSerializer."""
 
-    def get_full_name(self, obj):
+        model = User
+        fields: tuple[str, ...] = ("id", "email", "full_name", "date_joined")
+        read_only_fields: tuple[str, ...] = ("id", "email", "full_name", "date_joined")
+
+    def get_full_name(self, obj: Any) -> str:
         """
         Get the user's full name.
 

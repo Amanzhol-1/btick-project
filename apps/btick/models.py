@@ -1,12 +1,16 @@
-from django.db import models
-from django.db.models import PROTECT, CheckConstraint, Q, F, UniqueConstraint, CASCADE
-from django.conf import settings
-# from django.contrib.auth.models import User
-from django.contrib.auth import get_user_model
+# Python modules
 
+# Django modules
+from django.contrib.auth import get_user_model
+from django.db import models
+from django.db.models import CASCADE, PROTECT, CheckConstraint, F, Q, UniqueConstraint
+
+# Project modules
 from apps.abstracts.models import BaseEntity
 
+
 User = get_user_model()
+
 
 class EventStatus(models.TextChoices):
     """
@@ -17,9 +21,10 @@ class EventStatus(models.TextChoices):
         PUBLISHED: Event is live and available for booking.
         CANCELLED: Event has been cancelled.
     """
-    DRAFT = 'DRAFT'
-    PUBLISHED = 'PUBLISHED'
-    CANCELLED = 'CANCELLED'
+
+    DRAFT = "DRAFT", "Draft"
+    PUBLISHED = "PUBLISHED", "Published"
+    CANCELLED = "CANCELLED", "Cancelled"
 
 
 class BookingStatus(models.TextChoices):
@@ -31,9 +36,10 @@ class BookingStatus(models.TextChoices):
         CONFIRMED: Booking is confirmed and tickets are reserved.
         CANCELLED: Booking has been cancelled.
     """
-    PENDING = 'PENDING'
-    CONFIRMED = 'CONFIRMED'
-    CANCELLED = 'CANCELLED'
+
+    PENDING = "PENDING", "Pending"
+    CONFIRMED = "CONFIRMED", "Confirmed"
+    CANCELLED = "CANCELLED", "Cancelled"
 
 
 class TicketType(models.TextChoices):
@@ -47,11 +53,12 @@ class TicketType(models.TextChoices):
         STUDENT: Discounted ticket for students.
         GROUP: Discounted ticket for group bookings.
     """
-    STANDARD = 'STANDARD', 'Standard'
-    VIP = 'VIP', 'VIP'
-    EARLY_BIRD = 'EARLY_BIRD', 'Early Bird'
-    STUDENT = 'STUDENT', 'Student'
-    GROUP = 'GROUP', 'Group'
+
+    STANDARD = "STANDARD", "Standard"
+    VIP = "VIP", "VIP"
+    EARLY_BIRD = "EARLY_BIRD", "Early Bird"
+    STUDENT = "STUDENT", "Student"
+    GROUP = "GROUP", "Group"
 
 
 class Organization(BaseEntity):
@@ -60,31 +67,47 @@ class Organization(BaseEntity):
 
     Organizations are the top-level entities that create and manage events.
     They can have multiple events associated with them.
-
-    Attributes:
-        name: Unique name of the organization.
-        website: Optional URL to the organization's website.
-        contact_email: Optional email address for inquiries.
-
-    Relationships:
-        events: One-to-many relationship with Event model.
     """
-    name = models.CharField(max_length=200, unique=True)
-    website = models.URLField(blank=True)
-    contact_email = models.EmailField(blank=True)
+
+    # Class constants for field lengths
+    NAME_MAX_LENGTH: int = 200
+
+    name = models.CharField(
+        max_length=NAME_MAX_LENGTH,
+        unique=True,
+        verbose_name="Organization name",
+        help_text="Unique name of the organization",
+    )
+    website = models.URLField(
+        blank=True,
+        verbose_name="Website URL",
+        help_text="Optional URL to the organization's website",
+    )
+    contact_email = models.EmailField(
+        blank=True,
+        verbose_name="Contact email",
+        help_text="Optional email address for inquiries",
+    )
 
     class Meta:
-        verbose_name = 'Organization'
-        verbose_name_plural = 'Organizations'
+        """Meta options for Organization model."""
+
+        verbose_name = "Organization"
+        verbose_name_plural = "Organizations"
         permissions = [
-            ('view_own_organization', 'Can view own organization'),
-            ('manage_organization_events', 'Can manage organization events'),
-            ('view_organization_analytics', 'Can view organization analytics'),
-            ('manage_organization_members', 'Can manage organization members'),
+            ("view_own_organization", "Can view own organization"),
+            ("manage_organization_events", "Can manage organization events"),
+            ("view_organization_analytics", "Can view organization analytics"),
+            ("manage_organization_members", "Can manage organization members"),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """String representation."""
         return self.name
+
+    def __repr__(self) -> str:
+        """Developer representation."""
+        return f"Organization(id={self.pk}, name={self.name})"
 
 
 class Venue(BaseEntity):
@@ -93,30 +116,48 @@ class Venue(BaseEntity):
 
     Venues define the location and maximum capacity for events.
     Multiple events can be scheduled at the same venue.
-
-    Attributes:
-        name: Unique name of the venue.
-        address: Optional physical address of the venue.
-        capacity: Maximum number of attendees the venue can hold.
-
-    Relationships:
-        events: One-to-many relationship with Event model.
     """
-    name = models.CharField(max_length=200, unique=True)
-    address = models.CharField(max_length=500, blank=True)
-    capacity = models.PositiveIntegerField(default=0)
+
+    # Class constants for field lengths
+    NAME_MAX_LENGTH: int = 200
+    ADDRESS_MAX_LENGTH: int = 500
+
+    name = models.CharField(
+        max_length=NAME_MAX_LENGTH,
+        unique=True,
+        verbose_name="Venue name",
+        help_text="Unique name of the venue",
+    )
+    address = models.CharField(
+        max_length=ADDRESS_MAX_LENGTH,
+        blank=True,
+        verbose_name="Physical address",
+        help_text="Optional physical address of the venue",
+    )
+    capacity = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Maximum capacity",
+        help_text="Maximum number of attendees the venue can hold",
+    )
 
     class Meta:
-        verbose_name = 'Venue'
-        verbose_name_plural = 'Venues'
+        """Meta options for Venue model."""
+
+        verbose_name = "Venue"
+        verbose_name_plural = "Venues"
         permissions = [
-            ('view_venue_schedule', 'Can view events scheduled at venue'),
-            ('manage_venue_capacity', 'Can manage venue capacity'),
-            ('view_venue_analytics', 'Can view venue analytics'),
+            ("view_venue_schedule", "Can view events scheduled at venue"),
+            ("manage_venue_capacity", "Can manage venue capacity"),
+            ("view_venue_analytics", "Can view venue analytics"),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """String representation."""
         return self.name
+
+    def __repr__(self) -> str:
+        """Developer representation."""
+        return f"Venue(id={self.pk}, name={self.name})"
 
 
 class EventCategory(BaseEntity):
@@ -125,21 +166,31 @@ class EventCategory(BaseEntity):
 
     Categories help organize and filter events by type
     (e.g., Concert, Conference, Workshop, Sports).
-
-    Attributes:
-        name: Unique name of the category.
-
-    Relationships:
-        events: One-to-many relationship with Event model.
     """
-    name = models.CharField(max_length=64, unique=True)
+
+    # Class constants for field lengths
+    NAME_MAX_LENGTH: int = 64
+
+    name = models.CharField(
+        max_length=NAME_MAX_LENGTH,
+        unique=True,
+        verbose_name="Category name",
+        help_text="Unique name of the event category",
+    )
 
     class Meta:
-        verbose_name = 'Event Category'
-        verbose_name_plural = 'Event Categories'
+        """Meta options for EventCategory model."""
 
-    def __str__(self):
+        verbose_name = "Event Category"
+        verbose_name_plural = "Event Categories"
+
+    def __str__(self) -> str:
+        """String representation."""
         return self.name
+
+    def __repr__(self) -> str:
+        """Developer representation."""
+        return f"EventCategory(id={self.pk}, name={self.name})"
 
 
 class Event(BaseEntity):
@@ -148,50 +199,92 @@ class Event(BaseEntity):
 
     Events are the core entity of the ticketing system. Each event belongs
     to an organization, takes place at a venue, and has a category.
-
-    Attributes:
-        organization: The organization hosting this event.
-        venue: The location where the event takes place.
-        category: The type/category of the event.
-        title: Unique title of the event.
-        description: Optional detailed description of the event.
-        starts_at: Date and time when the event begins.
-        ends_at: Date and time when the event ends.
-        status: Current lifecycle status (DRAFT, PUBLISHED, CANCELLED).
-        capacity: Optional override for venue capacity for this event.
-
-    Relationships:
-        tickets: One-to-many relationship with EventsTicket model.
-
-    Constraints:
-        - ends_at must be greater than starts_at.
     """
-    organization = models.ForeignKey(Organization, on_delete=PROTECT, related_name='events')
-    venue = models.ForeignKey(Venue, on_delete=PROTECT, related_name='events')
-    category = models.ForeignKey(EventCategory, on_delete=PROTECT, related_name='events')
-    title = models.CharField(max_length=200, unique=True)
-    description = models.TextField(blank=True)
-    starts_at = models.DateTimeField()
-    ends_at = models.DateTimeField()
-    status = models.CharField(max_length=12, choices=EventStatus.choices, default=EventStatus.DRAFT)
-    capacity = models.PositiveIntegerField(null=True, blank=True)
+
+    # Class constants for field lengths
+    TITLE_MAX_LENGTH: int = 200
+    STATUS_MAX_LENGTH: int = 12
+
+    organization = models.ForeignKey(
+        to=Organization,
+        on_delete=PROTECT,
+        related_name="events",
+        verbose_name="Organization",
+        help_text="The organization hosting this event",
+    )
+    venue = models.ForeignKey(
+        to=Venue,
+        on_delete=PROTECT,
+        related_name="events",
+        verbose_name="Venue",
+        help_text="The location where the event takes place",
+    )
+    category = models.ForeignKey(
+        to=EventCategory,
+        on_delete=PROTECT,
+        related_name="events",
+        verbose_name="Category",
+        help_text="The type/category of the event",
+    )
+    title = models.CharField(
+        max_length=TITLE_MAX_LENGTH,
+        unique=True,
+        verbose_name="Event title",
+        help_text="Unique title of the event",
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name="Description",
+        help_text="Optional detailed description of the event",
+    )
+    starts_at = models.DateTimeField(
+        verbose_name="Start date/time",
+        help_text="Date and time when the event begins",
+    )
+    ends_at = models.DateTimeField(
+        verbose_name="End date/time",
+        help_text="Date and time when the event ends",
+    )
+    status = models.CharField(
+        max_length=STATUS_MAX_LENGTH,
+        choices=EventStatus.choices,
+        default=EventStatus.DRAFT,
+        verbose_name="Status",
+        help_text="Current lifecycle status (DRAFT, PUBLISHED, CANCELLED)",
+    )
+    capacity = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Event capacity",
+        help_text="Optional override for venue capacity for this event",
+    )
 
     class Meta:
-        verbose_name = 'Event'
-        verbose_name_plural = 'Events'
+        """Meta options for Event model."""
+
+        verbose_name = "Event"
+        verbose_name_plural = "Events"
         constraints = [
-            CheckConstraint(check=Q(ends_at__gt=F("starts_at")), name="event_ends_after_start")
+            CheckConstraint(
+                check=Q(ends_at__gt=F("starts_at")),
+                name="event_ends_after_start",
+            ),
         ]
         permissions = [
-            ('publish_event', 'Can publish draft events'),
-            ('cancel_event', 'Can cancel events'),
-            ('view_draft_events', 'Can view unpublished/draft events'),
-            ('view_event_analytics', 'Can view event booking/sales analytics'),
-            ('manage_event_tickets', 'Can manage event ticket tiers'),
+            ("publish_event", "Can publish draft events"),
+            ("cancel_event", "Can cancel events"),
+            ("view_draft_events", "Can view unpublished/draft events"),
+            ("view_event_analytics", "Can view event booking/sales analytics"),
+            ("manage_event_tickets", "Can manage event ticket tiers"),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """String representation."""
         return self.title
+
+    def __repr__(self) -> str:
+        """Developer representation."""
+        return f"Event(id={self.pk}, title={self.title}, status={self.status})"
 
 
 class EventsTicket(BaseEntity):
@@ -200,46 +293,77 @@ class EventsTicket(BaseEntity):
 
     Each event can have multiple ticket types (e.g., Standard, VIP)
     with different prices and quotas. Tracks inventory via quota and sold.
-
-    Attributes:
-        event: The event this ticket belongs to.
-        ticket_type: The tier of the ticket (STANDARD, VIP, etc.).
-        price: Price per ticket in the default currency.
-        quota: Total number of tickets available for sale.
-        sold: Number of tickets already sold.
-
-    Relationships:
-        bookings: One-to-many relationship with Booking model.
-
-    Constraints:
-        - Unique combination of event and ticket_type.
-        - price must be non-negative.
-        - quota must be non-negative.
-        - sold must be non-negative.
     """
-    event = models.ForeignKey(Event, on_delete=CASCADE, related_name='tickets')
-    ticket_type = models.CharField(max_length=80, choices=TicketType.choices)
-    price = models.DecimalField(max_digits=10, decimal_places=2)
-    quota = models.PositiveIntegerField(default=0)
-    sold = models.PositiveIntegerField(default=0)
+
+    # Class constants for field lengths
+    TICKET_TYPE_MAX_LENGTH: int = 80
+
+    event = models.ForeignKey(
+        to=Event,
+        on_delete=CASCADE,
+        related_name="tickets",
+        verbose_name="Event",
+        help_text="The event this ticket belongs to",
+    )
+    ticket_type = models.CharField(
+        max_length=TICKET_TYPE_MAX_LENGTH,
+        choices=TicketType.choices,
+        verbose_name="Ticket type",
+        help_text="The tier of the ticket (STANDARD, VIP, etc.)",
+    )
+    price = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name="Price",
+        help_text="Price per ticket in the default currency",
+    )
+    quota = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Quota",
+        help_text="Total number of tickets available for sale",
+    )
+    sold = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Sold",
+        help_text="Number of tickets already sold",
+    )
 
     class Meta:
-        verbose_name = 'Events Ticket'
-        verbose_name_plural = 'Events Tickets'
+        """Meta options for EventsTicket model."""
+
+        verbose_name = "Events Ticket"
+        verbose_name_plural = "Events Tickets"
         constraints = [
-            UniqueConstraint(fields=["event", "ticket_type"], name="event_ticket_type_unique"),
-            CheckConstraint(check=Q(price__gte=0), name="ticker_price_non_negative"),
-            CheckConstraint(check=Q(quota__gte=0), name="quota_non_negative"),
-            CheckConstraint(check=Q(sold__gte=0), name="sold_non_negative"),
+            UniqueConstraint(
+                fields=["event", "ticket_type"],
+                name="event_ticket_type_unique",
+            ),
+            CheckConstraint(
+                check=Q(price__gte=0),
+                name="ticker_price_non_negative",
+            ),
+            CheckConstraint(
+                check=Q(quota__gte=0),
+                name="quota_non_negative",
+            ),
+            CheckConstraint(
+                check=Q(sold__gte=0),
+                name="sold_non_negative",
+            ),
         ]
         permissions = [
-            ('view_ticket_inventory', 'Can view ticket inventory (quota/sold)'),
-            ('adjust_ticket_quota', 'Can adjust ticket quota'),
-            ('view_ticket_sales', 'Can view ticket sales metrics'),
+            ("view_ticket_inventory", "Can view ticket inventory (quota/sold)"),
+            ("adjust_ticket_quota", "Can adjust ticket quota"),
+            ("view_ticket_sales", "Can view ticket sales metrics"),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """String representation."""
         return self.ticket_type
+
+    def __repr__(self) -> str:
+        """Developer representation."""
+        return f"EventsTicket(id={self.pk}, event_id={self.event_id}, type={self.ticket_type})"
 
 
 class Booking(BaseEntity):
@@ -248,107 +372,188 @@ class Booking(BaseEntity):
 
     Bookings link users to event tickets and track the purchase status.
     A booking can be pending (awaiting payment), confirmed, or cancelled.
-
-    Attributes:
-        user: The user who made the booking.
-        event_ticket: The specific ticket type being booked.
-        quantity: Number of tickets in this booking.
-        status: Current status (PENDING, CONFIRMED, CANCELLED).
-        expires_at: Optional expiration time for pending bookings.
-
-    Constraints:
-        - quantity must be greater than 1.
     """
-    user = models.ForeignKey(User, on_delete=CASCADE, related_name='bookings')
-    event_ticket = models.ForeignKey(EventsTicket, on_delete=PROTECT, related_name='bookings')
-    quantity = models.PositiveIntegerField(default=1)
-    status = models.CharField(max_length=12, choices=BookingStatus.choices, default=BookingStatus.PENDING)
-    expires_at = models.DateTimeField(null=True, blank=True)
+
+    # Class constants for field lengths
+    STATUS_MAX_LENGTH: int = 12
+
+    user = models.ForeignKey(
+        to=User,
+        on_delete=CASCADE,
+        related_name="bookings",
+        verbose_name="User",
+        help_text="The user who made the booking",
+    )
+    event_ticket = models.ForeignKey(
+        to=EventsTicket,
+        on_delete=PROTECT,
+        related_name="bookings",
+        verbose_name="Event ticket",
+        help_text="The specific ticket type being booked",
+    )
+    quantity = models.PositiveIntegerField(
+        default=1,
+        verbose_name="Quantity",
+        help_text="Number of tickets in this booking",
+    )
+    status = models.CharField(
+        max_length=STATUS_MAX_LENGTH,
+        choices=BookingStatus.choices,
+        default=BookingStatus.PENDING,
+        verbose_name="Status",
+        help_text="Current status (PENDING, CONFIRMED, CANCELLED)",
+    )
+    expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Expires at",
+        help_text="Optional expiration time for pending bookings",
+    )
 
     class Meta:
-        verbose_name = 'Booking'
-        verbose_name_plural = 'Bookings'
+        """Meta options for Booking model."""
+
+        verbose_name = "Booking"
+        verbose_name_plural = "Bookings"
         constraints = [
-            CheckConstraint(check=Q(quantity__gt=1), name="booking_quantity_ge_1"),
+            CheckConstraint(
+                check=Q(quantity__gte=1),
+                name="booking_quantity_gte_1",
+            ),
         ]
         permissions = [
-            ('view_own_bookings', 'Can view own bookings only'),
-            ('cancel_own_booking', 'Can cancel own pending bookings'),
-            ('view_event_bookings', 'Can view all bookings for managed events'),
-            ('confirm_booking', 'Can confirm pending bookings'),
-            ('refund_booking', 'Can refund/cancel any booking'),
+            ("view_own_bookings", "Can view own bookings only"),
+            ("cancel_own_booking", "Can cancel own pending bookings"),
+            ("view_event_bookings", "Can view all bookings for managed events"),
+            ("confirm_booking", "Can confirm pending bookings"),
+            ("refund_booking", "Can refund/cancel any booking"),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """String representation."""
         return f"Booking {self.pk}> {self.user_id} x{self.quantity} {self.event_ticket.ticket_type}"
+
+    def __repr__(self) -> str:
+        """Developer representation."""
+        return f"Booking(id={self.pk}, user_id={self.user_id}, status={self.status})"
 
 
 class OrganizationRole(models.TextChoices):
-    """
-    Roles for organization membership.
-    """
-    OWNER = 'OWNER', 'Owner'
-    MANAGER = 'MANAGER', 'Manager'
-    STAFF = 'STAFF', 'Staff'
+    """Roles for organization membership."""
+
+    OWNER = "OWNER", "Owner"
+    MANAGER = "MANAGER", "Manager"
+    STAFF = "STAFF", "Staff"
 
 
 class OrganizationMembership(BaseEntity):
     """
     Links users to organizations they manage or work for.
 
-    Attributes:
-        user: The user who is a member.
-        organization: The organization they belong to.
-        role: Their role within the organization (OWNER, MANAGER, STAFF).
-
-    Constraints:
-        - Unique combination of user and organization.
+    Defines the relationship between users and organizations with specific roles.
     """
-    user = models.ForeignKey(User, on_delete=CASCADE, related_name='organization_memberships')
-    organization = models.ForeignKey(Organization, on_delete=CASCADE, related_name='memberships')
-    role = models.CharField(max_length=20, choices=OrganizationRole.choices, default=OrganizationRole.STAFF)
+
+    # Class constants for field lengths
+    ROLE_MAX_LENGTH: int = 20
+
+    user = models.ForeignKey(
+        to=User,
+        on_delete=CASCADE,
+        related_name="organization_memberships",
+        verbose_name="User",
+        help_text="The user who is a member",
+    )
+    organization = models.ForeignKey(
+        to=Organization,
+        on_delete=CASCADE,
+        related_name="memberships",
+        verbose_name="Organization",
+        help_text="The organization they belong to",
+    )
+    role = models.CharField(
+        max_length=ROLE_MAX_LENGTH,
+        choices=OrganizationRole.choices,
+        default=OrganizationRole.STAFF,
+        verbose_name="Role",
+        help_text="Their role within the organization (OWNER, MANAGER, STAFF)",
+    )
 
     class Meta:
-        verbose_name = 'Organization Membership'
-        verbose_name_plural = 'Organization Memberships'
+        """Meta options for OrganizationMembership model."""
+
+        verbose_name = "Organization Membership"
+        verbose_name_plural = "Organization Memberships"
         constraints = [
-            UniqueConstraint(fields=['user', 'organization'], name='unique_user_organization'),
+            UniqueConstraint(
+                fields=["user", "organization"],
+                name="unique_user_organization",
+            ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """String representation."""
         return f"{self.user.email} - {self.organization.name} ({self.role})"
+
+    def __repr__(self) -> str:
+        """Developer representation."""
+        return f"OrganizationMembership(id={self.pk}, user_id={self.user_id}, org_id={self.organization_id})"
 
 
 class VenueRole(models.TextChoices):
-    """
-    Roles for venue membership.
-    """
-    MANAGER = 'MANAGER', 'Manager'
-    STAFF = 'STAFF', 'Staff'
+    """Roles for venue membership."""
+
+    MANAGER = "MANAGER", "Manager"
+    STAFF = "STAFF", "Staff"
 
 
 class VenueMembership(BaseEntity):
     """
     Links users to venues they manage or work at.
 
-    Attributes:
-        user: The user who is a member.
-        venue: The venue they manage.
-        role: Their role at the venue (MANAGER, STAFF).
-
-    Constraints:
-        - Unique combination of user and venue.
+    Defines the relationship between users and venues with specific roles.
     """
-    user = models.ForeignKey(User, on_delete=CASCADE, related_name='venue_memberships')
-    venue = models.ForeignKey(Venue, on_delete=CASCADE, related_name='memberships')
-    role = models.CharField(max_length=20, choices=VenueRole.choices, default=VenueRole.STAFF)
+
+    # Class constants for field lengths
+    ROLE_MAX_LENGTH: int = 20
+
+    user = models.ForeignKey(
+        to=User,
+        on_delete=CASCADE,
+        related_name="venue_memberships",
+        verbose_name="User",
+        help_text="The user who is a member",
+    )
+    venue = models.ForeignKey(
+        to=Venue,
+        on_delete=CASCADE,
+        related_name="memberships",
+        verbose_name="Venue",
+        help_text="The venue they manage",
+    )
+    role = models.CharField(
+        max_length=ROLE_MAX_LENGTH,
+        choices=VenueRole.choices,
+        default=VenueRole.STAFF,
+        verbose_name="Role",
+        help_text="Their role at the venue (MANAGER, STAFF)",
+    )
 
     class Meta:
-        verbose_name = 'Venue Membership'
-        verbose_name_plural = 'Venue Memberships'
+        """Meta options for VenueMembership model."""
+
+        verbose_name = "Venue Membership"
+        verbose_name_plural = "Venue Memberships"
         constraints = [
-            UniqueConstraint(fields=['user', 'venue'], name='unique_user_venue'),
+            UniqueConstraint(
+                fields=["user", "venue"],
+                name="unique_user_venue",
+            ),
         ]
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """String representation."""
         return f"{self.user.email} - {self.venue.name} ({self.role})"
+
+    def __repr__(self) -> str:
+        """Developer representation."""
+        return f"VenueMembership(id={self.pk}, user_id={self.user_id}, venue_id={self.venue_id})"

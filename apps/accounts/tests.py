@@ -1,168 +1,295 @@
-from django.urls import reverse
-from rest_framework.test import APITestCase
+# Python modules
+
+# Django modules
+
+# Django Rest Framework modules
 from rest_framework import status
 
+# Third-party modules
+import pytest
+
+# Project modules
 from apps.accounts.models import User
 
 
-class UserRegistrationTestCase(APITestCase):
+# =============================================================================
+# User Registration Tests
+# =============================================================================
+
+
+class TestUserRegistration:
     """Tests for user registration endpoint."""
 
-    def test_registration_success(self):
+    def test_registration_success(self, api_client, db):
         """Test successful user registration."""
-        url = reverse('accounts:register')
         data = {
-            'email': 'test@example.com',
-            'password': 'SecurePass123!',
-            'password_confirm': 'SecurePass123!',
-            'first_name': 'Test',
-            'last_name': 'User'
+            "email": "newuser@example.com",
+            "password": "SecurePass123!",
+            "password_confirm": "SecurePass123!",
+            "first_name": "New",
+            "last_name": "User",
         }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertTrue(User.objects.filter(email='test@example.com').exists())
+        response = api_client.post("/api/auth/register", data=data, format="json")
+        assert response.status_code == status.HTTP_201_CREATED
+        assert User.objects.filter(email="newuser@example.com").exists()
+        assert "tokens" in response.data
+        assert "access" in response.data["tokens"]
 
-    def test_registration_duplicate_email(self):
+    def test_registration_duplicate_email(self, api_client, user):
         """Test registration fails with duplicate email."""
-        User.objects.create_user(email='existing@example.com', password='pass123')
-        url = reverse('accounts:register')
         data = {
-            'email': 'existing@example.com',
-            'password': 'SecurePass123!',
-            'password_confirm': 'SecurePass123!',
+            "email": user.email,
+            "password": "SecurePass123!",
+            "password_confirm": "SecurePass123!",
         }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response = api_client.post("/api/auth/register", data=data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "email" in response.data
 
-    def test_registration_password_mismatch(self):
+    def test_registration_password_mismatch(self, api_client, db):
         """Test registration fails when passwords don't match."""
-        url = reverse('accounts:register')
         data = {
-            'email': 'test@example.com',
-            'password': 'SecurePass123!',
-            'password_confirm': 'DifferentPass123!',
+            "email": "test@example.com",
+            "password": "SecurePass123!",
+            "password_confirm": "DifferentPass123!",
         }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('password_confirm', response.data)
+        response = api_client.post("/api/auth/register", data=data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "password_confirm" in response.data
+
+    def test_registration_weak_password(self, api_client, db):
+        """Test registration fails with weak password."""
+        data = {
+            "email": "test@example.com",
+            "password": "123",
+            "password_confirm": "123",
+        }
+        response = api_client.post("/api/auth/register", data=data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "password" in response.data
+
+    def test_registration_invalid_email(self, api_client, db):
+        """Test registration fails with invalid email format."""
+        data = {
+            "email": "invalid-email",
+            "password": "SecurePass123!",
+            "password_confirm": "SecurePass123!",
+        }
+        response = api_client.post("/api/auth/register", data=data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "email" in response.data
+
+    def test_registration_missing_email(self, api_client, db):
+        """Test registration fails without email."""
+        data = {
+            "password": "SecurePass123!",
+            "password_confirm": "SecurePass123!",
+        }
+        response = api_client.post("/api/auth/register", data=data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
 
 
-class UserLoginTestCase(APITestCase):
+# =============================================================================
+# User Login Tests
+# =============================================================================
+
+
+class TestUserLogin:
     """Tests for user login endpoint."""
 
-    def setUp(self):
-        self.user = User.objects.create_user(
-            email='user@example.com',
-            password='testpass123'
-        )
-
-    def test_login_success(self):
+    def test_login_success(self, api_client, user):
         """Test successful login returns JWT tokens."""
-        url = reverse('accounts:login')
         data = {
-            'email': 'user@example.com',
-            'password': 'testpass123'
+            "email": user.email,
+            "password": "SecurePass123!",
         }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertIn('access', response.data)
-        self.assertIn('refresh', response.data)
+        response = api_client.post("/api/auth/login", data=data, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert "access" in response.data
+        assert "refresh" in response.data
+        assert "user" in response.data
 
-    def test_login_wrong_password(self):
+    def test_login_wrong_password(self, api_client, user):
         """Test login fails with wrong password."""
-        url = reverse('accounts:login')
         data = {
-            'email': 'user@example.com',
-            'password': 'wrongpassword'
+            "email": user.email,
+            "password": "WrongPassword123!",
         }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = api_client.post("/api/auth/login", data=data, format="json")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_login_nonexistent_user(self):
+    def test_login_nonexistent_user(self, api_client, db):
         """Test login fails with non-existent user."""
-        url = reverse('accounts:login')
         data = {
-            'email': 'nonexistent@example.com',
-            'password': 'testpass123'
+            "email": "nonexistent@example.com",
+            "password": "SomePass123!",
         }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = api_client.post("/api/auth/login", data=data, format="json")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_login_missing_password(self, api_client, user):
+        """Test login fails without password."""
+        data = {
+            "email": user.email,
+        }
+        response = api_client.post("/api/auth/login", data=data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_login_missing_email(self, api_client, db):
+        """Test login fails without email."""
+        data = {
+            "password": "SomePass123!",
+        }
+        response = api_client.post("/api/auth/login", data=data, format="json")
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_login_inactive_user(self, api_client, db):
+        """Test login fails for inactive user."""
+        inactive_user = User.objects.create_user(
+            email="inactive@example.com",
+            password="SecurePass123!",
+            is_active=False,
+        )
+        data = {
+            "email": inactive_user.email,
+            "password": "SecurePass123!",
+        }
+        response = api_client.post("/api/auth/login", data=data, format="json")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
-class UserProfileTestCase(APITestCase):
+# =============================================================================
+# User Profile Tests
+# =============================================================================
+
+
+class TestUserProfile:
     """Tests for user profile endpoint."""
 
-    def setUp(self):
-        self.user = User.objects.create_user(
-            email='profile@example.com',
-            password='testpass123',
-            first_name='Profile',
-            last_name='User'
-        )
+    def test_profile_get_success(self, authenticated_client, user):
+        """Test getting profile when authenticated."""
+        response = authenticated_client.get("/api/auth/profile")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["email"] == user.email
+        assert response.data["first_name"] == user.first_name
 
-    def test_profile_unauthorized(self):
+    def test_profile_unauthorized(self, api_client, db):
         """Test profile endpoint requires authentication."""
-        url = reverse('accounts:profile')
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        response = api_client.get("/api/auth/profile")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
-    def test_profile_authorized(self):
-        """Test profile endpoint returns user data when authenticated."""
-        self.client.force_authenticate(user=self.user)
-        url = reverse('accounts:profile')
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['email'], 'profile@example.com')
-        self.assertEqual(response.data['first_name'], 'Profile')
-
-    def test_profile_update(self):
-        """Test profile can be updated."""
-        self.client.force_authenticate(user=self.user)
-        url = reverse('accounts:profile')
+    def test_profile_update_success(self, authenticated_client, user):
+        """Test updating profile."""
         data = {
-            'first_name': 'Updated',
-            'last_name': 'Name'
+            "first_name": "Updated",
+            "last_name": "Name",
         }
-        response = self.client.patch(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.user.refresh_from_db()
-        self.assertEqual(self.user.first_name, 'Updated')
-        self.assertEqual(self.user.last_name, 'Name')
+        response = authenticated_client.patch(
+            "/api/auth/profile",
+            data=data,
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        user.refresh_from_db()
+        assert user.first_name == "Updated"
+        assert user.last_name == "Name"
+
+    def test_profile_update_unauthorized(self, api_client, db):
+        """Test profile update requires authentication."""
+        data = {"first_name": "Hacker"}
+        response = api_client.patch("/api/auth/profile", data=data, format="json")
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_profile_cannot_change_email(self, authenticated_client, user):
+        """Test email cannot be changed via profile update."""
+        original_email = user.email
+        data = {"email": "newemail@example.com"}
+        response = authenticated_client.patch(
+            "/api/auth/profile",
+            data=data,
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        user.refresh_from_db()
+        assert user.email == original_email
 
 
-class ChangePasswordTestCase(APITestCase):
+# =============================================================================
+# Change Password Tests
+# =============================================================================
+
+
+class TestChangePassword:
     """Tests for change password endpoint."""
 
-    def setUp(self):
-        self.user = User.objects.create_user(
-            email='changepwd@example.com',
-            password='OldPass123!'
-        )
-
-    def test_change_password_success(self):
+    def test_change_password_success(self, authenticated_client, user):
         """Test password can be changed with valid data."""
-        self.client.force_authenticate(user=self.user)
-        url = reverse('accounts:change_password')
         data = {
-            'old_password': 'OldPass123!',
-            'new_password': 'NewPass456!',
-            'new_password_confirm': 'NewPass456!'
+            "old_password": "SecurePass123!",
+            "new_password": "NewSecurePass456!",
+            "new_password_confirm": "NewSecurePass456!",
         }
-        response = self.client.put(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        response = authenticated_client.post(
+            "/api/auth/change-password",
+            data=data,
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        user.refresh_from_db()
+        assert user.check_password("NewSecurePass456!")
 
-        # Verify new password works
-        self.user.refresh_from_db()
-        self.assertTrue(self.user.check_password('NewPass456!'))
-
-    def test_change_password_wrong_old(self):
+    def test_change_password_wrong_old(self, authenticated_client, user):
         """Test change password fails with wrong old password."""
-        self.client.force_authenticate(user=self.user)
-        url = reverse('accounts:change_password')
         data = {
-            'old_password': 'WrongOld123!',
-            'new_password': 'NewPass456!',
-            'new_password_confirm': 'NewPass456!'
+            "old_password": "WrongOldPass123!",
+            "new_password": "NewSecurePass456!",
+            "new_password_confirm": "NewSecurePass456!",
         }
-        response = self.client.put(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        response = authenticated_client.post(
+            "/api/auth/change-password",
+            data=data,
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_change_password_mismatch(self, authenticated_client, user):
+        """Test change password fails when new passwords don't match."""
+        data = {
+            "old_password": "SecurePass123!",
+            "new_password": "NewSecurePass456!",
+            "new_password_confirm": "DifferentPass789!",
+        }
+        response = authenticated_client.post(
+            "/api/auth/change-password",
+            data=data,
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_change_password_unauthorized(self, api_client, db):
+        """Test change password requires authentication."""
+        data = {
+            "old_password": "OldPass123!",
+            "new_password": "NewPass456!",
+            "new_password_confirm": "NewPass456!",
+        }
+        response = api_client.post(
+            "/api/auth/change-password",
+            data=data,
+            format="json",
+        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_change_password_weak_new_password(self, authenticated_client, user):
+        """Test change password fails with weak new password."""
+        data = {
+            "old_password": "SecurePass123!",
+            "new_password": "123",
+            "new_password_confirm": "123",
+        }
+        response = authenticated_client.post(
+            "/api/auth/change-password",
+            data=data,
+            format="json",
+        )
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
